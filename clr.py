@@ -244,6 +244,46 @@ def main():
     print('_____________________________________________________________________')
     print("\n", sr, "s/r conflicts |", rr, "r/r conflicts")
     print('_____________________________________________________________________')
+
+    print("Enter the string to be parsed")
+    Input=input()+'$'
+    try:
+        stack=['0']
+        a=list(table.items())
+        '''print(a[int(stack[-1])][1][Input[0]])
+        b=list(a[int(stack[-1])][1][Input[0]])
+        print(b[0][0])
+        print(a[0][1]["S"])'''
+        print("productions\t:",production_list)
+        print('stack',"\t \t\t \t",'Input')
+        print(*stack,"\t \t\t \t",*Input,sep="")
+        while(len(Input)!=0):
+            b=list(a[int(stack[-1])][1][Input[0]])
+            if(b[0][0]=="s" ):
+                #s=Input[0]+b[0][1:]
+                stack.append(Input[0])
+                stack.append(b[0][1:])
+                Input=Input[1:]
+                print(*stack,"\t \t\t \t",*Input,sep="")
+            elif(b[0][0]=="r" ):
+                s=int(b[0][1:])
+                #print(len(production_list),s)
+                l=len(production_list[s])-3
+                #print(l)
+                prod=production_list[s]
+                l*=2
+                l=len(stack)-l
+                stack=stack[:l]
+                s=a[int(stack[-1])][1][prod[0]]
+                #print(s,b)
+                stack+=list(prod[0])
+                stack.append(s)
+                print(*stack,"\t \t\t \t",*Input,sep="")
+            elif(b[0][0]=="a"):
+                print("\n\tString Accepted\n")
+                break
+    except:
+        print('\n\tString INCORRECT for given Grammar!\n')
     return 
 
 if __name__=="__main__":
