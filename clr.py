@@ -119,6 +119,68 @@ def calc_states():
     return states 
 
 
+def make_table(states):
+
+    global nt_list, t_list
+
+    def getstateno(t):
+
+        for s in states:
+            if len(s.closure) != len(t): continue
+
+            if sorted(s.closure)==sorted(t):
+                for i in range(len(s.closure)):
+                        if s.closure[i].lookahead!=t[i].lookahead: break
+                else: return s.no
+
+        return -1
+
+    def getprodno(closure):
+
+        closure=''.join(closure).replace('.', '')
+        return production_list.index(closure)
+
+    SLR_Table=OrderedDict()
+    
+    for i in range(len(states)):
+        states[i]=State(states[i])
+
+    for s in states:
+        SLR_Table[s.no]=OrderedDict()
+
+        for item in s.closure:
+            head, body=item.split('->')
+            if body=='.': 
+                for term in item.lookahead: 
+                    if term not in SLR_Table[s.no].keys():
+                        SLR_Table[s.no][term]={'r'+str(getprodno(item))}
+                    else: SLR_Table[s.no][term] |= {'r'+str(getprodno(item))}
+                continue
+
+            nextsym=body.split('.')[1]
+            if nextsym=='':
+                if getprodno(item)==0:
+                    SLR_Table[s.no]['$']='accept'
+                else:
+                    for term in item.lookahead: 
+                        if term not in SLR_Table[s.no].keys():
+                            SLR_Table[s.no][term]={'r'+str(getprodno(item))}
+                        else: SLR_Table[s.no][term] |= {'r'+str(getprodno(item))}
+                continue
+
+            nextsym=nextsym[0]
+            t=goto(s.closure, nextsym)
+            if t != []: 
+                if nextsym in t_list:
+                    if nextsym not in SLR_Table[s.no].keys():
+                        SLR_Table[s.no][nextsym]={'s'+str(getstateno(t))}
+                    else: SLR_Table[s.no][nextsym] |= {'s'+str(getstateno(t))}
+
+                else: SLR_Table[s.no][nextsym] = str(getstateno(t))
+
+    return SLR_Table
+
+
 def augment_grammar():
 
     for i in range(ord('Z'), ord('A')-1, -1):
@@ -157,7 +219,31 @@ def main():
         for i in s:
             print("\t", i)
         ctr+=1
+    table=make_table(j)
+    print('_____________________________________________________________________')
+    print("\n\tCLR(1) TABLE\n")
+    sym_list = nt_list + t_list
+    sr, rr=0, 0
+    print('_____________________________________________________________________')
+    print('\t|  ','\t|  '.join(sym_list),'\t\t|')
+    print('_____________________________________________________________________')
+    for i, j in table.items():
+            
+        print(i, "\t|  ", '\t|  '.join(list(j.get(sym,' ') if type(j.get(sym))in (str , None) else next(iter(j.get(sym,' ')))  for sym in sym_list)),'\t\t|')
+        s, r=0, 0
 
+        for p in j.values():
+            if p!='accept' and len(p)>1:
+                p=list(p)
+                if('r' in p[0]): r+=1
+                else: s+=1
+                if('r' in p[1]): r+=1
+                else: s+=1      
+        if r>0 and s>0: sr+=1
+        elif r>0: rr+=1
+    print('_____________________________________________________________________')
+    print("\n", sr, "s/r conflicts |", rr, "r/r conflicts")
+    print('_____________________________________________________________________')
     return 
 
 if __name__=="__main__":
