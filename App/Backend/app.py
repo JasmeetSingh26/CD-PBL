@@ -274,6 +274,54 @@ def compute():
         'TABLE': "\n".join(table_str)
     })
 
+# LL(1) Parser Implementation
+def compute_ll1_table():
+    table = {}
+    for nt in nt_list:
+        table[nt] = {}
+        for t in list(t_list.keys()) + ['$']:
+            table[nt][t] = ''
+
+    for prod in production_list:
+        head, body = prod.split('->')
+        first_of_body = set()
+        
+        if body == '':  # Empty production
+            first_of_body = {'ϵ'}
+        else:
+            # Calculate FIRST of the body
+            has_epsilon = True
+            for symbol in body:
+                if not has_epsilon:
+                    break
+                if symbol in t_list:
+                    first_of_body.add(symbol)
+                    has_epsilon = False
+                else:
+                    symbol_first = nt_list[symbol].first
+                    first_of_body |= symbol_first - {'ϵ'}
+                    if 'ϵ' not in symbol_first:
+                        has_epsilon = False
+            if has_epsilon:
+                first_of_body.add('ϵ')
+
+        # For each terminal in FIRST(body), add the production to the table
+        for terminal in first_of_body - {'ϵ'}:
+            if table[head][terminal]:
+                return None, f"Grammar is not LL(1): Conflict at {head}, {terminal}"
+            table[head][terminal] = prod
+
+        # If ϵ is in FIRST(body), add the production to FOLLOW(head)
+        if 'ϵ' in first_of_body:
+            for terminal in nt_list[head].follow:
+                if table[head][terminal]:
+                    return None, f"Grammar is not LL(1): Conflict at {head}, {terminal}"
+                table[head][terminal] = prod
+
+    return table, None
+
+@app.route('/compute_ll1', methods=['POST'])
+def compute_ll1():
     reset_globals()
     data = request.json
     grammar = data.get('grammar', '')
