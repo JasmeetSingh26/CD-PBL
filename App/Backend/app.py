@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, render_template
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -210,15 +210,206 @@ def build_parsing_table(states):
         table.append(row)
     return table
 
-#@app.route('/')
-#def index():
-#    return render_template('index.html')
+def parse_string_slr(input_string, parsing_table):
+    stack = ['0']
+    input_string = input_string + '$'
+    parse_steps = []
+    
+    parse_steps.append({
+        'stack': ' '.join(stack),
+        'input': input_string,
+        'action': 'Initial'
+    })
+    
+    while True:
+        current_state = int(stack[-1])
+        current_symbol = input_string[0]
+        
+        if current_symbol not in parsing_table[current_state]:
+            return {
+                'success': False,
+                'message': f"Invalid symbol '{current_symbol}' in state {current_state}",
+                'steps': parse_steps
+            }
+        
+        action = parsing_table[current_state][current_symbol]
+        
+        if action == '':
+            return {
+                'success': False,
+                'message': f"No action for symbol '{current_symbol}' in state {current_state}",
+                'steps': parse_steps
+            }
+        
+        if action == 'Accept':
+            parse_steps.append({
+                'stack': ' '.join(stack),
+                'input': input_string,
+                'action': 'Accept'
+            })
+            return {
+                'success': True,
+                'message': 'String accepted!',
+                'steps': parse_steps
+            }
+        
+        elif action.startswith('s'):  # Shift
+            next_state = action[1:]
+            stack.append(current_symbol)
+            stack.append(next_state)
+            input_string = input_string[1:]
+            
+            parse_steps.append({
+                'stack': ' '.join(stack),
+                'input': input_string,
+                'action': f"Shift to state {next_state}"
+            })
+            
+        elif action.startswith('r'):  # Reduce
+            prod_num = int(action[1:])
+            production = production_list[prod_num]
+            head, body = production.split('->')
+            
+            if body == '':  # Handling epsilon productions
+                parse_steps.append({
+                    'stack': ' '.join(stack),
+                    'input': input_string,
+                    'action': f"Reduce by {production} (epsilon)"
+                })
+                stack.append(head)
+                # Need to find the goto for the new state
+                current_state = int(stack[-2])
+                goto_state = parsing_table[current_state].get(head, '')
+                if goto_state == '':
+                    return {
+                        'success': False,
+                        'message': f"No goto for {head} in state {current_state}",
+                        'steps': parse_steps
+                    }
+                stack.append(goto_state)
+            else:
+                # Pop 2*len(body) elements (symbols and states)
+                pop_len = 2 * len(body)
+                if len(stack) < pop_len:
+                    return {
+                        'success': False,
+                        'message': f"Stack underflow when reducing by {production}",
+                        'steps': parse_steps
+                    }
+                
+                stack = stack[:-pop_len]
+                current_state = int(stack[-1])
+                
+                parse_steps.append({
+                    'stack': ' '.join(stack),
+                    'input': input_string,
+                    'action': f"Reduce by {production}"
+                })
+                
+                # Push the head and new state
+                stack.append(head)
+                goto_state = parsing_table[current_state].get(head, '')
+                if goto_state == '':
+                    return {
+                        'success': False,
+                        'message': f"No goto for {head} in state {current_state}",
+                        'steps': parse_steps
+                    }
+                stack.append(goto_state)
+                
+        else:
+            return {
+                'success': False,
+                'message': f"Unknown action {action}",
+                'steps': parse_steps
+            }
+
+def parse_string_ll1(input_string, parsing_table, start_symbol):
+    stack = ['$', start_symbol]
+    input_string = input_string + '$'
+    parse_steps = []
+    
+    parse_steps.append({
+        'stack': ' '.join(stack),
+        'input': input_string,
+        'action': 'Initial'
+    })
+    
+    while True:
+        if not stack:
+            return {
+                'success': False,
+                'message': 'Stack is empty',
+                'steps': parse_steps
+            }
+            
+        top = stack[-1]
+        current_input = input_string[0]
+        
+        if top == '$' and current_input == '$':
+            parse_steps.append({
+                'stack': ' '.join(stack),
+                'input': input_string,
+                'action': 'Accept'
+            })
+            return {
+                'success': True,
+                'message': 'String accepted!',
+                'steps': parse_steps
+            }
+            
+        elif top in t_list or top == '$':
+            if top == current_input:
+                stack.pop()
+                input_string = input_string[1:]
+                parse_steps.append({
+                    'stack': ' '.join(stack),
+                    'input': input_string,
+                    'action': f"Match '{top}'"
+                })
+            else:
+                return {
+                    'success': False,
+                    'message': f"Expected '{top}', found '{current_input}'",
+                    'steps': parse_steps
+                }
+                
+        elif top in nt_list:
+            production = parsing_table[top].get(current_input, '')
+            if not production:
+                return {
+                    'success': False,
+                    'message': f"No production for {top} on '{current_input}'",
+                    'steps': parse_steps
+                }
+                
+            stack.pop()
+            head, body = production.split('->')
+            
+            if body != 'ϵ':  # If not epsilon production
+                # Push symbols in reverse order
+                for symbol in reversed(body):
+                    stack.append(symbol)
+                    
+            parse_steps.append({
+                'stack': ' '.join(stack),
+                'input': input_string,
+                'action': f"Apply {production}"
+            })
+            
+        else:
+            return {
+                'success': False,
+                'message': f"Unknown symbol '{top}' on stack",
+                'steps': parse_steps
+            }
 
 @app.route('/compute', methods=['POST'])
 def compute():
     reset_globals()
     data = request.json
     grammar = data.get('grammar', '')
+    input_string = data.get('input_string', '')
     lines = grammar.strip().split('\n')
 
     for line in lines:
@@ -267,14 +458,19 @@ def compute():
         row_str = [str(idx)] + [row.get(sym, '') for sym in header[1:]]
         table_str.append('\t'.join(row_str))
 
+    # Parse the input string if provided
+    parsing_result = None
+    if input_string:
+        parsing_result = parse_string_slr(input_string, table)
+
     return jsonify({
         'FIRST': first_result,
         'FOLLOW': follow_result,
         'STATES': "\n\n".join(states_str_list),
-        'TABLE': "\n".join(table_str)
+        'TABLE': "\n".join(table_str),
+        'PARSING_RESULT': parsing_result
     })
 
-# LL(1) Parser Implementation
 def compute_ll1_table():
     table = {}
     for nt in nt_list:
@@ -325,6 +521,7 @@ def compute_ll1():
     reset_globals()
     data = request.json
     grammar = data.get('grammar', '')
+    input_string = data.get('input_string', '')
     lines = grammar.strip().split('\n')
 
     for line in lines:
@@ -373,10 +570,17 @@ def compute_ll1():
     first_result = {nt: sorted(list(nt_list[nt].first)) for nt in nt_list}
     follow_result = {nt: sorted(list(nt_list[nt].follow)) for nt in nt_list}
 
+    # Parse the input string if provided
+    parsing_result = None
+    if input_string and not error:
+        start_symbol = production_list[0].split('->')[0]
+        parsing_result = parse_string_ll1(input_string, parsing_table, start_symbol)
+
     return jsonify({
         'FIRST': first_result,
         'FOLLOW': follow_result,
-        'TABLE': '\n'.join(table_str)
+        'TABLE': '\n'.join(table_str),
+        'PARSING_RESULT': parsing_result
     })
 
 if __name__ == '__main__':
