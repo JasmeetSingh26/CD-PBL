@@ -140,45 +140,45 @@ def make_table(states):
         closure=''.join(closure).replace('.', '')
         return production_list.index(closure)
 
-    SLR_Table=OrderedDict()
+    CLR_Table=OrderedDict()
     
     for i in range(len(states)):
         states[i]=State(states[i])
 
     for s in states:
-        SLR_Table[s.no]=OrderedDict()
+        CLR_Table[s.no]=OrderedDict()
 
         for item in s.closure:
             head, body=item.split('->')
             if body=='.': 
                 for term in item.lookahead: 
-                    if term not in SLR_Table[s.no].keys():
-                        SLR_Table[s.no][term]={'r'+str(getprodno(item))}
-                    else: SLR_Table[s.no][term] |= {'r'+str(getprodno(item))}
+                    if term not in CLR_Table[s.no].keys():
+                        CLR_Table[s.no][term]={'r'+str(getprodno(item))}
+                    else: CLR_Table[s.no][term] |= {'r'+str(getprodno(item))}
                 continue
 
             nextsym=body.split('.')[1]
             if nextsym=='':
                 if getprodno(item)==0:
-                    SLR_Table[s.no]['$']='accept'
+                    CLR_Table[s.no]['$']='accept'
                 else:
                     for term in item.lookahead: 
-                        if term not in SLR_Table[s.no].keys():
-                            SLR_Table[s.no][term]={'r'+str(getprodno(item))}
-                        else: SLR_Table[s.no][term] |= {'r'+str(getprodno(item))}
+                        if term not in CLR_Table[s.no].keys():
+                            CLR_Table[s.no][term]={'r'+str(getprodno(item))}
+                        else: CLR_Table[s.no][term] |= {'r'+str(getprodno(item))}
                 continue
 
             nextsym=nextsym[0]
             t=goto(s.closure, nextsym)
             if t != []: 
                 if nextsym in t_list:
-                    if nextsym not in SLR_Table[s.no].keys():
-                        SLR_Table[s.no][nextsym]={'s'+str(getstateno(t))}
-                    else: SLR_Table[s.no][nextsym] |= {'s'+str(getstateno(t))}
+                    if nextsym not in CLR_Table[s.no].keys():
+                        CLR_Table[s.no][nextsym]={'s'+str(getstateno(t))}
+                    else: CLR_Table[s.no][nextsym] |= {'s'+str(getstateno(t))}
 
-                else: SLR_Table[s.no][nextsym] = str(getstateno(t))
+                else: CLR_Table[s.no][nextsym] = str(getstateno(t))
 
-    return SLR_Table
+    return CLR_Table
 
 
 def augment_grammar():

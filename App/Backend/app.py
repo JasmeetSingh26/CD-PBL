@@ -210,7 +210,7 @@ def build_parsing_table(states):
         table.append(row)
     return table
 
-def parse_string_slr(input_string, parsing_table):
+def parse_string_CLR(input_string, parsing_table):
     stack = ['0']
     input_string = input_string + '$'
     parse_steps = []
@@ -461,7 +461,7 @@ def compute():
     # Parse the input string if provided
     parsing_result = None
     if input_string:
-        parsing_result = parse_string_slr(input_string, table)
+        parsing_result = parse_string_CLR(input_string, table)
 
     return jsonify({
         'FIRST': first_result,

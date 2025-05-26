@@ -10,7 +10,7 @@ export default function App() {
   const [table, setTable] = useState("");
   const [view, setView] = useState("FIRST"); // FIRST or FOLLOW
   const [section, setSection] = useState("SETS"); // SETS or STATES
-  const [parser, setParser] = useState("SLR"); // SLR or LL1
+  const [parser, setParser] = useState("CLR"); // CLR or LL1
   const [error, setError] = useState("");
   const [parsingResult, setParsingResult] = useState(null);
   const [isParsing, setIsParsing] = useState(false);
@@ -34,7 +34,7 @@ export default function App() {
     setError("");
     setParsingResult(null);
     try {
-      const endpoint = parser === "SLR" ? "compute" : "compute_ll1";
+      const endpoint = parser === "CLR" ? "compute" : "compute_ll1";
       const payload = { grammar };
 
       // Include input string if we want to parse it
@@ -103,14 +103,14 @@ export default function App() {
               </label>
               <div className="flex space-x-2">
                 <button
-                  onClick={() => setParser("SLR")}
+                  onClick={() => setParser("CLR")}
                   className={`px-4 py-2 rounded-md font-medium ${
-                    parser === "SLR"
+                    parser === "CLR"
                       ? "bg-blue-600 text-white"
                       : "bg-gray-200 text-gray-800"
                   }`}
                 >
-                  SLR
+                  CLR
                 </button>
                 <button
                   onClick={() => setParser("LL1")}
@@ -127,7 +127,7 @@ export default function App() {
             <textarea
               id="grammar"
               placeholder={
-                parser === "SLR"
+                parser === "CLR"
                   ? `E → E + T | T\nT → T * F | F\nF → ( E ) | id`
                   : `E → T E'\nE' → + T E' | ε\nT → F T'\nT' → * F T' | ε\nF → ( E ) | id`
               }
@@ -193,8 +193,8 @@ export default function App() {
               </button>
             </div>
 
-            {/* States Toggle - Only show for SLR parser */}
-            {parser === "SLR" && (
+            {/* States Toggle - Only show for CLR parser */}
+            {parser === "CLR" && (
               <div className="flex space-x-2">
                 <button
                   onClick={() => setSection("STATES")}
